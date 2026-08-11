@@ -1,0 +1,15 @@
+{
+  "name": "Взвешивание",
+  "short_name": "ROW",
+  "start_url": "/rowing_weighing_offline/index.html",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#e94560",
+  "icons": [
+    {
+      "src": "ROW.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

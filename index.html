@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Взвешивание (офлайн)</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Весы">
+    <link rel="icon" type="image/png" href="ROW.png">
+    <link rel="shortcut icon" type="image/png" href="ROW.png">
+    <link rel="apple-touch-icon" href="ROW.png">
+    
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial; background: #1a1a2e; color: white; min-height: 100vh; padding: 20px; }
+        h2 { text-align: center; color: #e94560; margin-bottom: 20px; }
+        .offline-badge { text-align: center; background: #e74c3c; padding: 5px; border-radius: 20px; font-size: 12px; width: 120px; margin: 0 auto 15px auto; }
+        .box { background: #16213e; border-radius: 12px; padding: 20px; max-width: 400px; margin: 0 auto 15px auto; }
+        input { width: 100%; padding: 14px; border-radius: 8px; border: none; font-size: 18px; background: #0f3460; color: white; margin-bottom: 12px; }
+        button { cursor: pointer; }
+        .big-btn { width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; color: white; background: #e94560; }
+        .big-btn:active { background: #c0392b; }
+        .big-btn:disabled { opacity: 0.5; }
+        .btn-green { background: #2ecc71; }
+        .btn-blue { background: #3498db; }
+        #reader { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 12px; overflow: hidden; display: none; }
+        .card { background: #16213e; border-radius: 12px; padding: 20px; max-width: 400px; margin: 20px auto; text-align: center; display: none; }
+        .card h3 { margin-bottom: 10px; font-size: 22px; }
+        .card p { color: #ccc; margin: 3px 0; font-size: 16px; }
+        .badge { display: inline-block; padding: 8px 20px; border-radius: 20px; font-weight: bold; margin: 10px 0; }
+        .badge-pass { background: #2ecc71; }
+        .badge-fail { background: #e74c3c; }
+        .badge-none { background: #7f8c8d; }
+        .two-btns { display: flex; gap: 10px; margin-top: 15px; }
+        .two-btns button { flex: 1; padding: 16px; font-size: 16px; border: none; border-radius: 12px; font-weight: bold; color: white; }
+        .btn-pass { background: #2ecc71; }
+        .btn-fail { background: #e74c3c; }
+        .msg { max-width: 400px; margin: 10px auto; padding: 12px; border-radius: 8px; text-align: center; display: none; font-weight: bold; }
+        .msg-ok { background: #2ecc7133; display: block; }
+        .msg-err { background: #e74c3c33; display: block; }
+        .manual { max-width: 400px; margin: 10px auto; text-align: center; }
+        .manual input { background: #0f3460; margin-bottom: 10px; }
+        .manual button { background: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; width: 100%; }
+        .results-table { width: 100%; border-collapse: collapse; font-size: 11px; background: #16213e; border-radius: 8px; overflow: hidden; margin-top: 15px; }
+        .results-table th, .results-table td { padding: 6px 4px; text-align: left; border-bottom: 1px solid #2c3e50; }
+        .results-table th { background: #0f3460; font-size: 10px; }
+        .badge-sm { padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; color: white; }
+        .badge-sm-pass { background: #2ecc71; }
+        .badge-sm-fail { background: #e74c3c; }
+        .badge-sm-none { background: #7f8c8d; }
+        .sync-status { text-align: center; font-size: 12px; color: #888; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>⚖️ Взвешивание</h2>
+    <div class="offline-badge">📴 ОФЛАЙН</div>
+
+    <!-- Ввод фамилии судьи -->
+    <div class="box" id="step1">
+        <input type="text" id="judgeName" placeholder="Фамилия судьи" autofocus>
+        <button class="big-btn" onclick="startWork()">НАЧАТЬ ВЗВЕШИВАНИЕ</button>
+        <button class="big-btn btn-blue" style="margin-top:8px;" onclick="showResults()">📋 Результаты</button>
+        <button class="big-btn btn-green" style="margin-top:8px;" onclick="syncToCloud()" id="syncBtn">📤 Синхронизировать</button>
+        <p class="sync-status" id="syncStatus"></p>
+    </div>
+
+    <!-- Сканер -->
+    <div id="reader"></div>
+    <div class="manual" id="manualBox" style="display:none;">
+        <p style="margin-bottom:8px;">Введите регистрационный номер:</p>
+        <input type="text" id="manualId" placeholder="Рег. номер">
+        <button onclick="lookupById()">НАЙТИ</button>
+    </div>
+
+    <!-- Карточка -->
+    <div class="card" id="athleteCard">
+        <div id="statusBadge"></div>
+        <h3 id="athName"></h3>
+        <p id="athRegNumber"></p>
+        <p id="athRegion"></p>
+        <div class="two-btns" id="actionButtons"></div>
+    </div>
+    <div class="msg" id="message"></div>
+
+    <!-- Таблица результатов -->
+    <div id="resultsPanel" style="display:none;">
+        <button class="big-btn" style="margin-bottom:10px;" onclick="renderResultsTable()">🔄 Обновить</button>
+        <button class="big-btn btn-blue" style="margin-bottom:10px;" onclick="downloadLocalCSV()">📥 Скачать CSV</button>
+        <table class="results-table">
+            <thead>
+                <tr><th>Рег.№</th><th>Фамилия</th><th>Имя</th><th>Регион</th><th>Статус</th><th>Судья</th><th>Время</th></tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+        </table>
+        <button class="big-btn" style="margin-top:10px;" onclick="hideResults()">⬅ Назад к сканеру</button>
+    </div>
+
+    <script>
+        // ===== ЗАМЕНИ НА СВОИХ СПОРТСМЕНОВ =====
+        const ATHLETES = [
+            { id: 1, last_name: "Цымбалюк", first_name: "Милана", region: "Брестская", reg_number: "0001" },
+            { id: 2, last_name: "Козак", first_name: "Григорий", region: "Брестская", reg_number: "0003" },
+            { id: 3, last_name: "Ковалевич", first_name: "Глеб", region: "Брестская", reg_number: "0005" }
+            // Добавь остальных спортсменов в таком же формате
+        ];
+        // =======================================
+        
+        let judgeName = ''
+        let currentAthlete = null
+        let scanner = null
+
+        function getWeighIns() {
+            return JSON.parse(localStorage.getItem('offline_weigh_ins') || '[]')
+        }
+
+        function saveWeighIn(record) {
+            const data = getWeighIns()
+            data.push(record)
+            localStorage.setItem('offline_weigh_ins', JSON.stringify(data))
+        }
+
+        function startWork() {
+            const name = document.getElementById('judgeName').value.trim()
+            if (!name) { alert('Введите фамилию судьи!'); return }
+            judgeName = name
+            document.getElementById('step1').style.display = 'none'
+            document.getElementById('reader').style.display = 'block'
+            document.getElementById('manualBox').style.display = 'block'
+            try {
+                scanner = new Html5Qrcode("reader")
+                scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (text) => { findAthlete(text) }, () => {})
+            } catch(e) { document.getElementById('reader').style.display = 'none' }
+        }
+
+        function lookupById() {
+            const query = document.getElementById('manualId').value.trim()
+            if (!query) { alert('Введите регистрационный номер'); return }
+            findAthlete(query)
+        }
+
+        function findAthlete(query) {
+            const clean = String(query).trim()
+            
+            let athlete = ATHLETES.find(a => a.reg_number === clean)
+            if (!athlete) athlete = ATHLETES.find(a => String(a.id) === clean)
+            
+            if (!athlete) {
+                showMessage('Спортсмен с номером ' + clean + ' не найден', 'err')
+                return
+            }
+            
+            const weighIns = getWeighIns()
+            const last = weighIns.filter(w => w.athlete_id === athlete.id).pop()
+            
+            currentAthlete = athlete
+            showCard(athlete, last || null)
+        }
+
+        function showCard(athlete, last) {
+            document.getElementById('athleteCard').style.display = 'block'
+            document.getElementById('athName').textContent = (athlete.last_name||'') + ' ' + (athlete.first_name||'')
+            document.getElementById('athRegNumber').textContent = 'Рег. номер: ' + (athlete.reg_number||'—')
+            document.getElementById('athRegion').textContent = 'Регион: ' + (athlete.region||'—')
+            
+            const sd = document.getElementById('statusBadge')
+            const btns = document.getElementById('actionButtons')
+            
+            if (last) {
+                const s = last.status
+                sd.innerHTML = '<span class="badge ' + (s==='pass'?'badge-pass':'badge-fail') + '">' + (s==='pass'?'✅ ДОПУЩЕН':'❌ НЕ ДОПУЩЕН') + '</span>'
+                btns.innerHTML = ''
+            } else {
+                sd.innerHTML = '<span class="badge badge-none">НЕ ПРОХОДИЛ</span>'
+                btns.innerHTML = '<button class="btn-pass" onclick="save(\'pass\')">✅ ДОПУЩЕН</button><button class="btn-fail" onclick="save(\'fail\')">❌ НЕ ДОПУЩЕН</button>'
+            }
+        }
+
+        function save(status) {
+            if (!currentAthlete || !judgeName) return
+            
+            const record = {
+                athlete_id: currentAthlete.id,
+                judge_name: judgeName,
+                status: status,
+                time: new Date().toISOString(),
+                synced: false
+            }
+            
+            saveWeighIn(record)
+            
+            const txt = status === 'pass' ? 'ДОПУЩЕН' : 'НЕ ДОПУЩЕН'
+            showMessage(currentAthlete.last_name + ' — ' + txt, 'ok')
+            showCard(currentAthlete, record)
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message')
+            msg.textContent = text; msg.className = 'msg msg-' + type
+            setTimeout(() => { msg.className = 'msg' }, 4000)
+        }
+
+        function showResults() {
+            document.getElementById('step1').style.display = 'none'
+            document.getElementById('athleteCard').style.display = 'none'
+            document.getElementById('resultsPanel').style.display = 'block'
+            renderResultsTable()
+        }
+
+        function hideResults() {
+            document.getElementById('resultsPanel').style.display = 'none'
+            document.getElementById('step1').style.display = 'block'
+        }
+
+        function renderResultsTable() {
+            const tbody = document.getElementById('resultsBody')
+            const weighIns = getWeighIns()
+            
+            const statusMap = {}
+            weighIns.forEach(w => { statusMap[w.athlete_id] = w })
+            
+            tbody.innerHTML = ''
+            
+            ATHLETES.forEach(a => {
+                const last = statusMap[a.id]
+                let badge = '<span class="badge-sm badge-sm-none">—</span>'
+                let judge = '—'
+                let time = '—'
+                
+                if (last) {
+                    badge = last.status === 'pass' 
+                        ? '<span class="badge-sm badge-sm-pass">ДОПУЩЕН</span>'
+                        : '<span class="badge-sm badge-sm-fail">НЕ ДОПУЩЕН</span>'
+                    judge = last.judge_name
+                    time = new Date(last.time).toLocaleString('ru-RU')
+                }
+                
+                tbody.innerHTML += `<tr>
+                    <td>${a.reg_number||'—'}</td>
+                    <td>${a.last_name||''}</td>
+                    <td>${a.first_name||''}</td>
+                    <td>${a.region||'—'}</td>
+                    <td>${badge}</td>
+                    <td>${judge}</td>
+                    <td>${time}</td>
+                </tr>`
+            })
+        }
+
+        function downloadLocalCSV() {
+            const weighIns = getWeighIns()
+            const statusMap = {}
+            weighIns.forEach(w => { statusMap[w.athlete_id] = w })
+            
+            const headers = ['Рег.номер', 'Фамилия', 'Имя', 'Регион', 'Статус', 'Судья', 'Время']
+            const rows = ATHLETES.map(a => {
+                const last = statusMap[a.id]
+                const status = last ? (last.status === 'pass' ? 'ДОПУЩЕН' : 'НЕ ДОПУЩЕН') : '—'
+                const time = last ? new Date(last.time).toLocaleString('ru-RU') : '—'
+                return [a.reg_number||'', a.last_name||'', a.first_name||'', a.region||'', status, last?.judge_name||'', time]
+            })
+            
+            let csv = '\uFEFF' + headers.join(';') + '\n' + rows.map(r => r.join(';')).join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url; a.download = 'результаты_офлайн.csv'; a.click()
+            URL.revokeObjectURL(url)
+        }
+
+        async function syncToCloud() {
+            const weighIns = getWeighIns()
+            const unsynced = weighIns.filter(w => !w.synced)
+            
+            if (unsynced.length === 0) {
+                document.getElementById('syncStatus').textContent = 'Нет новых данных для синхронизации'
+                return
+            }
+            
+            document.getElementById('syncBtn').disabled = true
+            document.getElementById('syncStatus').textContent = 'Синхронизация...'
+            
+            try {
+                const script = document.createElement('script')
+                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+                document.head.appendChild(script)
+                
+                await new Promise(resolve => { script.onload = resolve })
+                
+                const SUPABASE_URL = 'https://cgqvdhsikjbpgtrikjsc.supabase.co'
+                const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNncXZkaHNpa2picGd0cmlranNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwODkyMzEsImV4cCI6MjEwMTY2NTIzMX0.ITrdbGWe8FppPOvz5B9yIhobg8iy3lCl7-Q6m524Ijo'
+                const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+                
+                for (const w of unsynced) {
+                    const { error } = await db.from('weigh_ins').insert({
+                        athlete_id: w.athlete_id,
+                        judge_name: w.judge_name,
+                        status: w.status
+                    })
+                    if (!error) w.synced = true
+                }
+                
+                localStorage.setItem('offline_weigh_ins', JSON.stringify(weighIns))
+                document.getElementById('syncStatus').textContent = '✅ Синхронизировано: ' + unsynced.length + ' записей'
+            } catch(e) {
+                document.getElementById('syncStatus').textContent = '❌ Нет сети. Попробуйте позже.'
+            }
+            
+            document.getElementById('syncBtn').disabled = false
+        }
+
+        // Регистрация Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+        }
+    </script>
+</body>
+</html>
