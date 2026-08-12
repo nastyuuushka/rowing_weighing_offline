@@ -1,6 +1,6 @@
 const CACHE_NAME = 'rowing_weighing_offline-v1'
 const urlsToCache = [
-    '/rowing_weighing_offline/index.html',
+    '/rowing_weighing_offline/index2.html',
     '/rowing_weighing_offline/manifest.json',
     '/rowing_weighing_offline/ROW.png'
 ]
