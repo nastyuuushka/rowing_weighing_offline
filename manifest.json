@@ -1,7 +1,7 @@
 {
   "name": "Взвешивание",
   "short_name": "ROW",
-  "start_url": "/rowing_weighing_offline/index.html",
+  "start_url": "/rowing_weighing_offline/index2.html",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#e94560",
