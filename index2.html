@@ -1,0 +1,3595 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Взвешивание (офлайн)</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest2.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Весы">
+    <link rel="icon" type="image/png" href="ROW.png">
+    <link rel="shortcut icon" type="image/png" href="ROW.png">
+    <link rel="apple-touch-icon" href="ROW.png">
+    
+    <!-- Библиотеки -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            min-height: 100vh;
+        }
+        
+        /* Шапка */
+        .header {
+            background: #16213e;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h2 {
+            color: #e94560;
+            font-size: 20px;
+        }
+        
+        .burger {
+            font-size: 28px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: white;
+            padding: 5px;
+        }
+        
+        .sync-badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 10px;
+        }
+
+        /* Меню */
+        .menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        
+        .menu-overlay.open {
+            display: block;
+        }
+        
+        .menu-panel {
+            position: fixed;
+            top: 0;
+            right: -280px;
+            width: 280px;
+            height: 100%;
+            background: #16213e;
+            z-index: 20;
+            transition: right 0.3s;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .menu-panel.open {
+            right: 0;
+        }
+        
+        .menu-panel h3 {
+            color: #e94560;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .menu-panel button {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: left;
+            color: white;
+            background: #0f3460;
+        }
+        
+        .menu-panel .close-btn {
+            background: #e94560;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        /* Вкладки */
+        .tab {
+            display: none;
+            padding: 20px;
+        }
+        
+        .tab.active {
+            display: block;
+        }
+
+        /* Общие элементы */
+        .box {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto 15px auto;
+        }
+        
+        input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            background: #0f3460;
+            color: white;
+            margin-bottom: 12px;
+        }
+        
+        button {
+            cursor: pointer;
+        }
+        
+        .big-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            background: #e94560;
+        }
+        
+        .big-btn:active {
+            background: #c0392b;
+        }
+        
+        .big-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .btn-blue {
+            background: #3498db;
+        }
+        
+        .btn-green {
+            background: #2ecc71;
+        }
+        
+        .btn-red {
+            background: #e74c3c;
+        }
+        
+        .btn-orange {
+            background: #e67e22;
+        }
+
+        /* Сканер */
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            margin: 20px auto;
+            text-align: center;
+            display: none;
+        }
+        
+        .card h3 {
+            margin-bottom: 10px;
+            font-size: 22px;
+        }
+        
+        .card p {
+            color: #ccc;
+            margin: 3px 0;
+            font-size: 16px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .badge-pass {
+            background: #2ecc71;
+        }
+        
+        .badge-fail {
+            background: #e74c3c;
+        }
+        
+        .badge-none {
+            background: #7f8c8d;
+        }
+        
+        .two-btns {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .two-btns button {
+            flex: 1;
+            padding: 16px;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .btn-pass {
+            background: #2ecc71;
+        }
+        
+        .btn-fail {
+            background: #e74c3c;
+        }
+        
+        .msg {
+            max-width: 400px;
+            margin: 10px auto;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+            font-weight: bold;
+        }
+        
+        .msg-ok {
+            background: #2ecc7133;
+            display: block;
+        }
+        
+        .msg-err {
+            background: #e74c3c33;
+            display: block;
+        }
+        
+        .manual {
+            max-width: 400px;
+            margin: 10px auto;
+            text-align: center;
+        }
+        
+        .manual input {
+            background: #0f3460;
+            margin-bottom: 10px;
+        }
+        
+        .manual button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        /* Фильтры */
+        .filter-btns {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 12px;
+            border: 2px solid #3498db;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            background: transparent;
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .filter-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Таблица */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            background: #16213e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .results-table th,
+        .results-table td {
+            padding: 6px 4px;
+            text-align: left;
+            border-bottom: 1px solid #2c3e50;
+        }
+        
+        .results-table th {
+            background: #0f3460;
+            font-size: 10px;
+        }
+        
+        .badge-sm {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            white-space: nowrap;
+        }
+        
+        .badge-sm-pass {
+            background: #2ecc71;
+        }
+        
+        .badge-sm-fail {
+            background: #e74c3c;
+        }
+        
+        .badge-sm-none {
+            background: #7f8c8d;
+        }
+
+        /* Настройки */
+        .settings-box {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto 20px auto;
+        }
+        
+        .settings-box h3 {
+            margin-bottom: 15px;
+            color: #e94560;
+        }
+        
+        .settings-box p {
+            color: #ccc;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .divider {
+            border: none;
+            border-top: 1px solid #2c3e50;
+            margin: 25px 0;
+        }
+
+        /* Списки с чекбоксами */
+        .athlete-list {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .search-input {
+            margin-bottom: 12px;
+        }
+        
+        .athlete-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background: #16213e;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            gap: 10px;
+        }
+        
+        .athlete-row input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #e94560;
+            margin: 0;
+            flex-shrink: 0;
+        }
+        
+        .athlete-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .athlete-info strong {
+            display: block;
+            font-size: 14px;
+        }
+        
+        .athlete-info span {
+            font-size: 11px;
+            color: #aaa;
+        }
+        
+        .select-all-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 0 5px;
+        }
+        
+        .select-all-row label {
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .select-all-row input {
+            width: 18px;
+            height: 18px;
+            accent-color: #e94560;
+            margin: 0;
+        }
+        
+        .hidden-canvas {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
+
+        /* История */
+        .event-log {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #16213e;
+            border-radius: 12px;
+            padding: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .event-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #2c3e50;
+            font-size: 12px;
+        }
+        
+        .event-item:last-child {
+            border-bottom: none;
+        }
+        
+        .event-time {
+            color: #888;
+            font-size: 10px;
+        }
+        
+        .event-pass {
+            color: #2ecc71;
+        }
+        
+        .event-fail {
+            color: #e74c3c;
+        }
+        
+        .event-reset {
+            color: #e74c3c;
+        }
+        
+        .event-delete {
+            color: #e74c3c;
+        }
+        
+        .event-add {
+            color: #3498db;
+        }
+        
+        .event-sync {
+            color: #3498db;
+        }
+
+        /* Формы */
+        .add-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .add-form label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <!-- ==================== ШАПКА ==================== -->
+    <div class="header">
+        <h2>⚖️ Взвешивание <span class="sync-badge" id="syncBadge">📴 ОФЛАЙН</span></h2>
+        <button class="burger" onclick="toggleMenu()">☰</button>
+    </div>
+
+    <!-- ==================== МЕНЮ ==================== -->
+    <div class="menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
+    <div class="menu-panel" id="menuPanel">
+        <h3>Меню</h3>
+        <button onclick="switchTab('scan')">📷 Сканер</button>
+        <button onclick="switchTab('results')">📋 Результаты</button>
+        <button onclick="switchTab('generator')">📱 Генератор QR</button>
+        <button onclick="switchTab('settings')">⚙️ Настройки</button>
+        <button class="close-btn" onclick="toggleMenu()">✕ Закрыть</button>
+    </div>
+
+    <!-- ==================== СКАНЕР ==================== -->
+    <div class="tab active" id="tab-scan">
+        <div class="box" id="step1">
+            <input type="text" id="judgeName" placeholder="Фамилия судьи" autofocus>
+            <button class="big-btn" onclick="startWork()">НАЧАТЬ ВЗВЕШИВАНИЕ</button>
+        </div>
+        
+        <div id="reader"></div>
+        
+        <div class="manual" id="manualBox" style="display:none;">
+            <p style="margin-bottom:8px;">Введите регистрационный номер:</p>
+            <input type="text" id="manualId" placeholder="Рег. номер">
+            <button onclick="lookupById()">НАЙТИ</button>
+        </div>
+        
+        <div class="card" id="athleteCard">
+            <div id="statusBadge"></div>
+            <h3 id="athName"></h3>
+            <p id="athRegNumber"></p>
+            <p id="athClub"></p>
+            <p id="athRegion"></p>
+            <p id="athClass"></p>
+            <div class="two-btns" id="actionButtons"></div>
+        </div>
+        
+        <div class="msg" id="message"></div>
+    </div>
+
+    <!-- ==================== РЕЗУЛЬТАТЫ ==================== -->
+    <div class="tab" id="tab-results">
+        <div style="max-width: 100%; overflow-x: auto;">
+            <input type="text" class="search-input" id="resultsSearch" placeholder="🔍 Поиск..." oninput="applyResultsFilters()">
+            
+            <div class="filter-btns">
+                <button class="filter-btn active" onclick="setResultsFilter('all')" id="res-filter-all">Все</button>
+                <button class="filter-btn" onclick="setResultsFilter('pass')" id="res-filter-pass">✅ Допущены</button>
+                <button class="filter-btn" onclick="setResultsFilter('fail')" id="res-filter-fail">❌ Не допущены</button>
+                <button class="filter-btn" onclick="setResultsFilter('none')" id="res-filter-none">⚪ Не проходили</button>
+            </div>
+            
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                <button class="big-btn btn-blue" style="flex:1; font-size:14px;" onclick="downloadResultsCSV()">📥 Скачать CSV</button>
+                <button class="big-btn btn-green" style="flex:1; font-size:14px;" onclick="applyResultsFilters()">🔄 Обновить</button>
+            </div>
+            
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Рег.№</th>
+                        <th>Фамилия</th>
+                        <th>Имя</th>
+                        <th>Регион</th>
+                        <th>Статус</th>
+                        <th>Судья</th>
+                        <th>Время</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== ГЕНЕРАТОР QR ==================== -->
+    <div class="tab" id="tab-generator">
+        <div class="athlete-list">
+            <input type="text" class="search-input" id="qrSearch" placeholder="🔍 Поиск..." oninput="filterQRList()">
+            
+            <div class="select-all-row">
+                <label>
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> Выбрать всех
+                </label>
+                <span id="selectedCount">Выбрано: 0</span>
+            </div>
+            
+            <div id="qrCheckboxes"></div>
+            
+            <button class="big-btn btn-green" onclick="generateQR()" id="genBtn" disabled style="margin-top:12px;">
+                📥 Сгенерировать QR-коды
+            </button>
+            
+            <p style="text-align:center; margin-top:10px; font-size:13px; color:#aaa;" id="genStatus"></p>
+        </div>
+        <div class="hidden-canvas" id="hiddenCanvas"></div>
+    </div>
+
+    <!-- ==================== НАСТРОЙКИ ==================== -->
+    <div class="tab" id="tab-settings">
+        
+        <!-- История -->
+        <div class="settings-box">
+            <h3>📜 История событий</h3>
+            <div class="event-log" id="eventLog">
+                <p style="text-align:center; color:#888;">Загрузка...</p>
+            </div>
+            <button class="big-btn btn-blue" style="margin-top:10px;" onclick="loadEventLog()">🔄 Обновить историю</button>
+        </div>
+
+        <hr class="divider" style="max-width:400px; margin: 20px auto;">
+
+        <!-- Добавить спортсмена -->
+        <div class="settings-box">
+            <h3>➕ Добавить спортсмена</h3>
+            <div class="add-form">
+                <label>Рег. номер</label>
+                <input type="text" id="addRegNumber" placeholder="0001">
+                
+                <label>Фамилия</label>
+                <input type="text" id="addLastName" placeholder="Иванов">
+                
+                <label>Имя</label>
+                <input type="text" id="addFirstName" placeholder="Иван">
+                
+                <label>Регион</label>
+                <input type="text" id="addRegion" placeholder="Брестская">
+                
+                <label>Клуб (необязательно)</label>
+                <input type="text" id="addClub" placeholder="ЦСКА">
+                
+                <label>Категория (необязательно)</label>
+                <input type="text" id="addClass" placeholder="К-1 200м">
+                
+                <button class="big-btn btn-blue" onclick="addAthlete()">✅ Добавить спортсмена</button>
+                <p style="margin-top:10px; font-size:12px; color:#3498db;" id="addStatus"></p>
+            </div>
+        </div>
+
+        <hr class="divider" style="max-width:400px; margin: 20px auto;">
+
+        <!-- Загрузка CSV -->
+        <div class="settings-box">
+            <h3>📥 Загрузка CSV</h3>
+            <p>Загрузите файл CSV со спортсменами.<br>Колонки: reg_number, last_name, first_name, region, club, weight_class</p>
+            <input type="file" id="csvFile" accept=".csv" style="margin-bottom:10px;">
+            <button class="big-btn btn-blue" onclick="uploadCSV()">📥 Загрузить CSV</button>
+            <p style="margin-top:10px; font-size:12px; color:#3498db;" id="csvStatus"></p>
+        </div>
+
+        <hr class="divider" style="max-width:400px; margin: 20px auto;">
+
+        <!-- Выборочный сброс -->
+        <div class="settings-box">
+            <h3>🔄 Выборочный сброс результатов</h3>
+            <p>Отметьте спортсменов для сброса статуса.</p>
+            <input type="text" class="search-input" id="resetSearch" placeholder="🔍 Поиск..." oninput="filterResetList()">
+            
+            <div class="select-all-row">
+                <label>
+                    <input type="checkbox" id="selectAllReset" onchange="toggleSelectAllReset()"> Выбрать всех
+                </label>
+                <span id="resetCount">Выбрано: 0</span>
+            </div>
+            
+            <div id="resetCheckboxes" style="max-height: 300px; overflow-y: auto;"></div>
+            
+            <button class="big-btn btn-orange" onclick="resetSelected()" id="resetBtn" disabled style="margin-top:12px;">
+                🔄 Сбросить статус
+            </button>
+            <p style="margin-top:10px; font-size:12px; color:#e67e22;" id="resetSelectedStatus"></p>
+        </div>
+
+        <hr class="divider" style="max-width:400px; margin: 20px auto;">
+
+        <!-- Полный сброс -->
+        <div class="settings-box">
+            <h3>⚙️ Полный сброс результатов</h3>
+            <p>Очистка всех результатов взвешивания.</p>
+            <button class="big-btn btn-red" onclick="resetWeighIns()">🗑 Сбросить все отметки</button>
+            <p style="margin-top:15px; font-size:12px; color:#e74c3c;" id="resetStatus"></p>
+        </div>
+
+        <hr class="divider" style="max-width:400px; margin: 20px auto;">
+
+        <!-- Удаление спортсменов -->
+        <div class="settings-box">
+            <h3>🗑 Выборочное удаление спортсменов</h3>
+            <p>Отметьте спортсменов для удаления.</p>
+            <input type="text" class="search-input" id="deleteSearch" placeholder="🔍 Поиск..." oninput="filterDeleteList()">
+            
+            <div class="select-all-row">
+                <label>
+                    <input type="checkbox" id="selectAllDelete" onchange="toggleSelectAllDelete()"> Выбрать всех
+                </label>
+                <span id="deleteCount">Выбрано: 0</span>
+            </div>
+            
+            <div id="deleteCheckboxes" style="max-height: 300px; overflow-y: auto;"></div>
+            
+            <button class="big-btn btn-red" onclick="deleteSelected()" id="deleteBtn" disabled style="margin-top:12px;">
+                🗑 Удалить выбранных
+            </button>
+            <p style="margin-top:10px; font-size:12px; color:#e74c3c;" id="deleteStatus"></p>
+        </div>
+
+        <hr class="divider" style="max-width:400px; margin: 20px auto;">
+
+        <!-- Полное удаление -->
+        <div class="settings-box">
+            <h3>💀 Полное удаление всех спортсменов</h3>
+            <p>Удаляет всех спортсменов и результаты. Необратимо.</p>
+            <button class="big-btn btn-red" onclick="deleteAllAthletes()">💀 Удалить всех</button>
+            <p style="margin-top:15px; font-size:12px; color:#e74c3c;" id="deleteAllStatus"></p>
+        </div>
+
+    </div>
+
+    <!-- ==================== СКРИПТ ==================== -->
+    <script>
+        // ===== СПИСОК СПОРТСМЕНОВ (замени на своих) =====
+        let ATHLETES = [
+  {
+    "id": 1,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Цымбалюк",
+    "first_name": "Милана",
+    "region": "Брестская",
+    "reg_number": "0001"
+  },
+  {
+    "id": 2,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Козак",
+    "first_name": "Григорий",
+    "region": "Брестская",
+    "reg_number": "0003"
+  },
+  {
+    "id": 3,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ковалевич",
+    "first_name": "Глеб",
+    "region": "Брестская",
+    "reg_number": "0005"
+  },
+  {
+    "id": 4,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Сидоревич",
+    "first_name": "Артем",
+    "region": "Брестская",
+    "reg_number": "0007"
+  },
+  {
+    "id": 5,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Цуман",
+    "first_name": "Еврегий",
+    "region": "Брестская",
+    "reg_number": "0009"
+  },
+  {
+    "id": 6,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кравец",
+    "first_name": "Владислав",
+    "region": "Брестская",
+    "reg_number": "0011"
+  },
+  {
+    "id": 7,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Степанюк",
+    "first_name": "Серафим",
+    "region": "Брестская",
+    "reg_number": "0013"
+  },
+  {
+    "id": 8,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ольков",
+    "first_name": "Артем",
+    "region": "Брестская",
+    "reg_number": "0015"
+  },
+  {
+    "id": 9,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Маржина",
+    "first_name": "Анна",
+    "region": "Брестская",
+    "reg_number": "0017"
+  },
+  {
+    "id": 10,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ботвинко",
+    "first_name": "Дарья",
+    "region": "Брестская",
+    "reg_number": "0019"
+  },
+  {
+    "id": 11,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Попитич",
+    "first_name": "Ульяна",
+    "region": "Брестская",
+    "reg_number": "0002"
+  },
+  {
+    "id": 12,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Овчинников",
+    "first_name": "Егор",
+    "region": "Брестская",
+    "reg_number": "0004"
+  },
+  {
+    "id": 13,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Попичич",
+    "first_name": "Дмитрий",
+    "region": "Брестская",
+    "reg_number": "0006"
+  },
+  {
+    "id": 14,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Данилюк",
+    "first_name": "Дмитрий",
+    "region": "Брестская",
+    "reg_number": "0008"
+  },
+  {
+    "id": 15,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Юреня",
+    "first_name": "Олег",
+    "region": "Брестская",
+    "reg_number": "0010"
+  },
+  {
+    "id": 16,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Дымарчук",
+    "first_name": "Виталий",
+    "region": "Брестская",
+    "reg_number": "0012"
+  },
+  {
+    "id": 17,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Стерничук",
+    "first_name": "Николай",
+    "region": "Брестская",
+    "reg_number": "0014"
+  },
+  {
+    "id": 18,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Попичич",
+    "first_name": "Мария",
+    "region": "Брестская",
+    "reg_number": "0016"
+  },
+  {
+    "id": 19,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Черняковская",
+    "first_name": "София",
+    "region": "Брестская",
+    "reg_number": "0018"
+  },
+  {
+    "id": 20,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Борисюк",
+    "first_name": "Полина",
+    "region": "Брестская",
+    "reg_number": "0020"
+  },
+  {
+    "id": 21,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Демидович",
+    "first_name": "Кира",
+    "region": "Витебская",
+    "reg_number": "0158"
+  },
+  {
+    "id": 22,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ходорко",
+    "first_name": "Эвелина",
+    "region": "Витебская",
+    "reg_number": "0160"
+  },
+  {
+    "id": 23,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Дурко",
+    "first_name": "Ангелина",
+    "region": "Витебская",
+    "reg_number": "0162"
+  },
+  {
+    "id": 24,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Филимонов",
+    "first_name": "Илья",
+    "region": "Витебская",
+    "reg_number": "0164"
+  },
+  {
+    "id": 25,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ларченков",
+    "first_name": "Владислав",
+    "region": "Витебская",
+    "reg_number": "0166"
+  },
+  {
+    "id": 26,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Казаченко",
+    "first_name": "Александр",
+    "region": "Витебская",
+    "reg_number": "0168"
+  },
+  {
+    "id": 27,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Беляцкий",
+    "first_name": "Михаил",
+    "region": "Витебская",
+    "reg_number": "0170"
+  },
+  {
+    "id": 28,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шелепов",
+    "first_name": "Тимофей",
+    "region": "Витебская",
+    "reg_number": "0172"
+  },
+  {
+    "id": 29,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Павлюченко",
+    "first_name": "Яна",
+    "region": "Витебская",
+    "reg_number": "0159"
+  },
+  {
+    "id": 30,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шиянова",
+    "first_name": "Ирина",
+    "region": "Витебская",
+    "reg_number": "0161"
+  },
+  {
+    "id": 31,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Савко",
+    "first_name": "Татьяна",
+    "region": "Витебская",
+    "reg_number": "0163"
+  },
+  {
+    "id": 32,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пушкин",
+    "first_name": "Назар",
+    "region": "Витебская",
+    "reg_number": "0165"
+  },
+  {
+    "id": 33,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Азаренко",
+    "first_name": "Михаил",
+    "region": "Витебская",
+    "reg_number": "0167"
+  },
+  {
+    "id": 34,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Хацкевич",
+    "first_name": "Иван",
+    "region": "Витебская",
+    "reg_number": "0169"
+  },
+  {
+    "id": 35,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Козлов",
+    "first_name": "Александр",
+    "region": "Витебская",
+    "reg_number": "0171"
+  },
+  {
+    "id": 36,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Щербакова",
+    "first_name": "Варвара",
+    "region": "г. Минск",
+    "reg_number": "0068"
+  },
+  {
+    "id": 37,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Егоренко",
+    "first_name": "Стефания",
+    "region": "г. Минск",
+    "reg_number": "0070"
+  },
+  {
+    "id": 38,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Дроздовская",
+    "first_name": "Ульяна",
+    "region": "г. Минск",
+    "reg_number": "0072"
+  },
+  {
+    "id": 39,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мех",
+    "first_name": "Маргарита",
+    "region": "г. Минск",
+    "reg_number": "0074"
+  },
+  {
+    "id": 40,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Березовенко",
+    "first_name": "Даниил",
+    "region": "г. Минск",
+    "reg_number": "0076"
+  },
+  {
+    "id": 41,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Жолобов",
+    "first_name": "Андрей",
+    "region": "г. Минск",
+    "reg_number": "0078"
+  },
+  {
+    "id": 42,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Муравский",
+    "first_name": "Роман",
+    "region": "г. Минск",
+    "reg_number": "0080"
+  },
+  {
+    "id": 43,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Зиняев",
+    "first_name": "Сергей",
+    "region": "г. Минск",
+    "reg_number": "0082"
+  },
+  {
+    "id": 44,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Абцешко",
+    "first_name": "Антон",
+    "region": "г. Минск",
+    "reg_number": "0084"
+  },
+  {
+    "id": 45,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Станкевич",
+    "first_name": "Максим",
+    "region": "г. Минск",
+    "reg_number": "0086"
+  },
+  {
+    "id": 46,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пожиток",
+    "first_name": "Макар",
+    "region": "г. Минск",
+    "reg_number": "0088"
+  },
+  {
+    "id": 47,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Железный",
+    "first_name": "Игорь",
+    "region": "г. Минск",
+    "reg_number": "0090"
+  },
+  {
+    "id": 48,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Климович",
+    "first_name": "Тимофей",
+    "region": "г. Минск",
+    "reg_number": "0092"
+  },
+  {
+    "id": 49,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Хвощ",
+    "first_name": "Ян-Павел",
+    "region": "г. Минск",
+    "reg_number": "0094"
+  },
+  {
+    "id": 50,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Климкович",
+    "first_name": "Александр",
+    "region": "г. Минск",
+    "reg_number": "0096"
+  },
+  {
+    "id": 51,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Петрушин",
+    "first_name": "Алексей",
+    "region": "г. Минск",
+    "reg_number": "0098"
+  },
+  {
+    "id": 52,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ермоленко",
+    "first_name": "Денис",
+    "region": "г. Минск",
+    "reg_number": "0100"
+  },
+  {
+    "id": 53,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Рогович",
+    "first_name": "Арсений",
+    "region": "г. Минск",
+    "reg_number": "0102"
+  },
+  {
+    "id": 54,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Солонович",
+    "first_name": "Степан",
+    "region": "г. Минск",
+    "reg_number": "0104"
+  },
+  {
+    "id": 55,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Агуреев",
+    "first_name": "Матвей",
+    "region": "г. Минск",
+    "reg_number": "0106"
+  },
+  {
+    "id": 56,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Фищук",
+    "first_name": "Александр",
+    "region": "г. Минск",
+    "reg_number": "0108"
+  },
+  {
+    "id": 57,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Степанюк",
+    "first_name": "Елизавета",
+    "region": "г. Минск",
+    "reg_number": "0110"
+  },
+  {
+    "id": 58,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Заляцкая",
+    "first_name": "Яна",
+    "region": "г. Минск",
+    "reg_number": "0112"
+  },
+  {
+    "id": 59,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кудряшова",
+    "first_name": "Анастасия",
+    "region": "г. Минск",
+    "reg_number": "0114"
+  },
+  {
+    "id": 60,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Евтихович",
+    "first_name": "Максим",
+    "region": "г. Минск",
+    "reg_number": "0156"
+  },
+  {
+    "id": 61,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шумская",
+    "first_name": "Александра",
+    "region": "г. Минск",
+    "reg_number": "0069"
+  },
+  {
+    "id": 62,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Баранова",
+    "first_name": "Елизавета",
+    "region": "г. Минск",
+    "reg_number": "0071"
+  },
+  {
+    "id": 63,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Комар",
+    "first_name": "София",
+    "region": "г. Минск",
+    "reg_number": "0073"
+  },
+  {
+    "id": 64,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Задонцева",
+    "first_name": "Софья",
+    "region": "г. Минск",
+    "reg_number": "0075"
+  },
+  {
+    "id": 65,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шиянов",
+    "first_name": "Олег",
+    "region": "г. Минск",
+    "reg_number": "0077"
+  },
+  {
+    "id": 66,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Муравский",
+    "first_name": "Максим",
+    "region": "г. Минск",
+    "reg_number": "0079"
+  },
+  {
+    "id": 67,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Потапенко",
+    "first_name": "Иван",
+    "region": "г. Минск",
+    "reg_number": "0081"
+  },
+  {
+    "id": 68,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Цвилик",
+    "first_name": "Арсений",
+    "region": "г. Минск",
+    "reg_number": "0083"
+  },
+  {
+    "id": 69,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Карачун",
+    "first_name": "Алексей",
+    "region": "г. Минск",
+    "reg_number": "0085"
+  },
+  {
+    "id": 70,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Синичкин",
+    "first_name": "Матвей",
+    "region": "г. Минск",
+    "reg_number": "0087"
+  },
+  {
+    "id": 71,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Лычковский",
+    "first_name": "Максим",
+    "region": "г. Минск",
+    "reg_number": "0089"
+  },
+  {
+    "id": 72,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Натынчик",
+    "first_name": "Дмитрий",
+    "region": "г. Минск",
+    "reg_number": "0091"
+  },
+  {
+    "id": 73,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Федотов",
+    "first_name": "Антон",
+    "region": "г. Минск",
+    "reg_number": "0093"
+  },
+  {
+    "id": 74,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Абалмасов",
+    "first_name": "Эмиль",
+    "region": "г. Минск",
+    "reg_number": "0095"
+  },
+  {
+    "id": 75,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Валько",
+    "first_name": "Даниил",
+    "region": "г. Минск",
+    "reg_number": "0097"
+  },
+  {
+    "id": 76,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Игнатов",
+    "first_name": "Владимир",
+    "region": "г. Минск",
+    "reg_number": "0099"
+  },
+  {
+    "id": 77,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Окуленко",
+    "first_name": "Арсений",
+    "region": "г. Минск",
+    "reg_number": "0101"
+  },
+  {
+    "id": 78,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Прибоченко",
+    "first_name": "Кирилл",
+    "region": "г. Минск",
+    "reg_number": "0103"
+  },
+  {
+    "id": 79,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Вайтешин",
+    "first_name": "Артём",
+    "region": "г. Минск",
+    "reg_number": "0105"
+  },
+  {
+    "id": 80,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кудин",
+    "first_name": "Максим",
+    "region": "г. Минск",
+    "reg_number": "0107"
+  },
+  {
+    "id": 81,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Данильчук",
+    "first_name": "Ева",
+    "region": "г. Минск",
+    "reg_number": "0109"
+  },
+  {
+    "id": 82,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Соболь",
+    "first_name": "Полина",
+    "region": "г. Минск",
+    "reg_number": "0111"
+  },
+  {
+    "id": 83,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Неделькина",
+    "first_name": "Инна",
+    "region": "г. Минск",
+    "reg_number": "0113"
+  },
+  {
+    "id": 84,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Петров",
+    "first_name": "Иван",
+    "region": "г. Минск",
+    "reg_number": "0155"
+  },
+  {
+    "id": 85,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Гашников",
+    "first_name": "Захар",
+    "region": "г. Минск",
+    "reg_number": "0157"
+  },
+  {
+    "id": 86,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шубовская",
+    "first_name": "Алеся",
+    "region": "Гомельская",
+    "reg_number": "0021"
+  },
+  {
+    "id": 87,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Карнеенко",
+    "first_name": "Анастасия",
+    "region": "Гомельская",
+    "reg_number": "0023"
+  },
+  {
+    "id": 88,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ключинская",
+    "first_name": "Дарья",
+    "region": "Гомельская",
+    "reg_number": "0025"
+  },
+  {
+    "id": 89,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Христина",
+    "first_name": "Варвара",
+    "region": "Гомельская",
+    "reg_number": "0027"
+  },
+  {
+    "id": 90,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шаманская",
+    "first_name": "Дарья",
+    "region": "Гомельская",
+    "reg_number": "0029"
+  },
+  {
+    "id": 91,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Вилькова",
+    "first_name": "Елизавета",
+    "region": "Гомельская",
+    "reg_number": "0031"
+  },
+  {
+    "id": 92,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Емельяненко",
+    "first_name": "Людмила",
+    "region": "Гомельская",
+    "reg_number": "0033"
+  },
+  {
+    "id": 93,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Малевская",
+    "first_name": "Владислава",
+    "region": "Гомельская",
+    "reg_number": "0035"
+  },
+  {
+    "id": 94,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Бубович",
+    "first_name": "Анна",
+    "region": "Гомельская",
+    "reg_number": "0037"
+  },
+  {
+    "id": 95,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Лузанова",
+    "first_name": "Елизавета",
+    "region": "Гомельская",
+    "reg_number": "0039"
+  },
+  {
+    "id": 96,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Яночкин",
+    "first_name": "Павел",
+    "region": "Гомельская",
+    "reg_number": "0041"
+  },
+  {
+    "id": 97,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Володченко",
+    "first_name": "Андрей",
+    "region": "Гомельская",
+    "reg_number": "0043"
+  },
+  {
+    "id": 98,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мальчинский",
+    "first_name": "Даниил",
+    "region": "Гомельская",
+    "reg_number": "0045"
+  },
+  {
+    "id": 99,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Харитонов",
+    "first_name": "Владислав",
+    "region": "Гомельская",
+    "reg_number": "0047"
+  },
+  {
+    "id": 100,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мельников",
+    "first_name": "Александр",
+    "region": "Гомельская",
+    "reg_number": "0049"
+  },
+  {
+    "id": 101,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Щербин",
+    "first_name": "Виталий",
+    "region": "Гомельская",
+    "reg_number": "0051"
+  },
+  {
+    "id": 102,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пархоменко",
+    "first_name": "Андрей",
+    "region": "Гомельская",
+    "reg_number": "0053"
+  },
+  {
+    "id": 103,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ефимович",
+    "first_name": "Илья",
+    "region": "Гомельская",
+    "reg_number": "0055"
+  },
+  {
+    "id": 104,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Якшин",
+    "first_name": "Игорь",
+    "region": "Гомельская",
+    "reg_number": "0057"
+  },
+  {
+    "id": 105,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Демин",
+    "first_name": "Глеб",
+    "region": "Гомельская",
+    "reg_number": "0059"
+  },
+  {
+    "id": 106,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Линкевич",
+    "first_name": "Александр",
+    "region": "Гомельская",
+    "reg_number": "0061"
+  },
+  {
+    "id": 107,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Верещако",
+    "first_name": "Илья",
+    "region": "Гомельская",
+    "reg_number": "0063"
+  },
+  {
+    "id": 108,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Железный",
+    "first_name": "Игорь",
+    "region": "Гомельская",
+    "reg_number": "0065"
+  },
+  {
+    "id": 109,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Потапенко",
+    "first_name": "Денис",
+    "region": "Гомельская",
+    "reg_number": "0067"
+  },
+  {
+    "id": 110,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Богданик",
+    "first_name": "Руслан",
+    "region": "Гомельская",
+    "reg_number": "0132"
+  },
+  {
+    "id": 111,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Граб",
+    "first_name": "Станислав",
+    "region": "Гомельская",
+    "reg_number": "0134"
+  },
+  {
+    "id": 112,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Незоля",
+    "first_name": "Вадим",
+    "region": "Гомельская",
+    "reg_number": "0136"
+  },
+  {
+    "id": 113,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Бориков",
+    "first_name": "Никита",
+    "region": "Гомельская",
+    "reg_number": "0175"
+  },
+  {
+    "id": 114,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Аптыкаев",
+    "first_name": "Павел",
+    "region": "Гомельская",
+    "reg_number": "0205"
+  },
+  {
+    "id": 115,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ткачева",
+    "first_name": "Маргарита",
+    "region": "Гомельская",
+    "reg_number": "0207"
+  },
+  {
+    "id": 116,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Муха",
+    "first_name": "Елизавета",
+    "region": "Гомельская",
+    "reg_number": "0022"
+  },
+  {
+    "id": 117,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Воробей",
+    "first_name": "Татьяна",
+    "region": "Гомельская",
+    "reg_number": "0024"
+  },
+  {
+    "id": 118,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ходько",
+    "first_name": "Юлия",
+    "region": "Гомельская",
+    "reg_number": "0026"
+  },
+  {
+    "id": 119,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Солоненко",
+    "first_name": "Диана",
+    "region": "Гомельская",
+    "reg_number": "0028"
+  },
+  {
+    "id": 120,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кушнер",
+    "first_name": "Надежда",
+    "region": "Гомельская",
+    "reg_number": "0030"
+  },
+  {
+    "id": 121,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Скриганова",
+    "first_name": "Владислава",
+    "region": "Гомельская",
+    "reg_number": "0032"
+  },
+  {
+    "id": 122,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Сухоренко",
+    "first_name": "Полина",
+    "region": "Гомельская",
+    "reg_number": "0034"
+  },
+  {
+    "id": 123,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Домнич",
+    "first_name": "Кира",
+    "region": "Гомельская",
+    "reg_number": "0036"
+  },
+  {
+    "id": 124,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Якушева",
+    "first_name": "Анастасия",
+    "region": "Гомельская",
+    "reg_number": "0038"
+  },
+  {
+    "id": 125,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ноздрева",
+    "first_name": "Елена",
+    "region": "Гомельская",
+    "reg_number": "0040"
+  },
+  {
+    "id": 126,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Булыга",
+    "first_name": "Иван",
+    "region": "Гомельская",
+    "reg_number": "0042"
+  },
+  {
+    "id": 127,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кузьменко",
+    "first_name": "Егор",
+    "region": "Гомельская",
+    "reg_number": "0044"
+  },
+  {
+    "id": 128,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Андреенко",
+    "first_name": "Артем",
+    "region": "Гомельская",
+    "reg_number": "0046"
+  },
+  {
+    "id": 129,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шкутов",
+    "first_name": "Егор",
+    "region": "Гомельская",
+    "reg_number": "0048"
+  },
+  {
+    "id": 130,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кукса",
+    "first_name": "Даниил",
+    "region": "Гомельская",
+    "reg_number": "0050"
+  },
+  {
+    "id": 131,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пархоменко",
+    "first_name": "Егор",
+    "region": "Гомельская",
+    "reg_number": "0052"
+  },
+  {
+    "id": 132,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Павлов",
+    "first_name": "Вадим",
+    "region": "Гомельская",
+    "reg_number": "0054"
+  },
+  {
+    "id": 133,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Поживилко",
+    "first_name": "Алексей",
+    "region": "Гомельская",
+    "reg_number": "0056"
+  },
+  {
+    "id": 134,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ворожун",
+    "first_name": "Георгий",
+    "region": "Гомельская",
+    "reg_number": "0058"
+  },
+  {
+    "id": 135,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Зайцев",
+    "first_name": "Иван",
+    "region": "Гомельская",
+    "reg_number": "0060"
+  },
+  {
+    "id": 136,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Коноплич",
+    "first_name": "Даниил",
+    "region": "Гомельская",
+    "reg_number": "0062"
+  },
+  {
+    "id": 137,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Верещако",
+    "first_name": "Данила",
+    "region": "Гомельская",
+    "reg_number": "0064"
+  },
+  {
+    "id": 138,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пашковец",
+    "first_name": "Егор",
+    "region": "Гомельская",
+    "reg_number": "0066"
+  },
+  {
+    "id": 139,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Коршиков",
+    "first_name": "Даниил",
+    "region": "Гомельская",
+    "reg_number": "0131"
+  },
+  {
+    "id": 140,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Коноплич",
+    "first_name": "Даниил",
+    "region": "Гомельская",
+    "reg_number": "0133"
+  },
+  {
+    "id": 141,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Падуто",
+    "first_name": "Тарас",
+    "region": "Гомельская",
+    "reg_number": "0135"
+  },
+  {
+    "id": 142,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Федоренко",
+    "first_name": "Илья",
+    "region": "Гомельская",
+    "reg_number": "0174"
+  },
+  {
+    "id": 143,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Жеребцов",
+    "first_name": "Егор",
+    "region": "Гомельская",
+    "reg_number": "0204"
+  },
+  {
+    "id": 144,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Трушкина",
+    "first_name": "Юлия",
+    "region": "Гомельская",
+    "reg_number": "0206"
+  },
+  {
+    "id": 145,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Савчук",
+    "first_name": "Инна",
+    "region": "Гродненская",
+    "reg_number": "0116"
+  },
+  {
+    "id": 146,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Синкель",
+    "first_name": "Людмила",
+    "region": "Гродненская",
+    "reg_number": "0118"
+  },
+  {
+    "id": 147,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Скомин",
+    "first_name": "Никита",
+    "region": "Гродненская",
+    "reg_number": "0120"
+  },
+  {
+    "id": 148,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Юрчак",
+    "first_name": "Михаил",
+    "region": "Гродненская",
+    "reg_number": "0122"
+  },
+  {
+    "id": 149,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пацевич",
+    "first_name": "Павел",
+    "region": "Гродненская",
+    "reg_number": "0124"
+  },
+  {
+    "id": 150,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Терешко",
+    "first_name": "Никита",
+    "region": "Гродненская",
+    "reg_number": "0126"
+  },
+  {
+    "id": 151,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Хрущ",
+    "first_name": "Владислав",
+    "region": "Гродненская",
+    "reg_number": "0128"
+  },
+  {
+    "id": 152,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Змарзер",
+    "first_name": "Алексей",
+    "region": "Гродненская",
+    "reg_number": "0130"
+  },
+  {
+    "id": 153,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Свита",
+    "first_name": "Алина",
+    "region": "Гродненская",
+    "reg_number": "0117"
+  },
+  {
+    "id": 154,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Скомин",
+    "first_name": "Егор",
+    "region": "Гродненская",
+    "reg_number": "0119"
+  },
+  {
+    "id": 155,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пецевич",
+    "first_name": "Алексей",
+    "region": "Гродненская",
+    "reg_number": "0121"
+  },
+  {
+    "id": 156,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кононович",
+    "first_name": "Вадим",
+    "region": "Гродненская",
+    "reg_number": "0123"
+  },
+  {
+    "id": 157,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кушмар",
+    "first_name": "Дмитрий",
+    "region": "Гродненская",
+    "reg_number": "0125"
+  },
+  {
+    "id": 158,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Теребей",
+    "first_name": "Арсений",
+    "region": "Гродненская",
+    "reg_number": "0127"
+  },
+  {
+    "id": 159,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Августинович",
+    "first_name": "Артем",
+    "region": "Гродненская",
+    "reg_number": "0129"
+  },
+  {
+    "id": 160,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Москалик",
+    "first_name": "Константин",
+    "region": "Минская",
+    "reg_number": "0115"
+  },
+  {
+    "id": 161,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пыреев",
+    "first_name": "Виктор",
+    "region": "Минская",
+    "reg_number": "0177"
+  },
+  {
+    "id": 162,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Цымбалюк",
+    "first_name": "Илья",
+    "region": "Минская",
+    "reg_number": "0179"
+  },
+  {
+    "id": 163,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Климович",
+    "first_name": "Денис",
+    "region": "Минская",
+    "reg_number": "0181"
+  },
+  {
+    "id": 164,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Пыреев",
+    "first_name": "Владислав",
+    "region": "Минская",
+    "reg_number": "0183"
+  },
+  {
+    "id": 165,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Гацукович",
+    "first_name": "Даниил",
+    "region": "Минская",
+    "reg_number": "0185"
+  },
+  {
+    "id": 166,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Наливайко",
+    "first_name": "Тимофей",
+    "region": "Минская",
+    "reg_number": "0187"
+  },
+  {
+    "id": 167,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мостыко",
+    "first_name": "Тимофей",
+    "region": "Минская",
+    "reg_number": "0189"
+  },
+  {
+    "id": 168,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Раткевич",
+    "first_name": "Егор",
+    "region": "Минская",
+    "reg_number": "0191"
+  },
+  {
+    "id": 169,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Дащинский",
+    "first_name": "Алексей",
+    "region": "Минская",
+    "reg_number": "0193"
+  },
+  {
+    "id": 170,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Полешко",
+    "first_name": "Владислав",
+    "region": "Минская",
+    "reg_number": "0195"
+  },
+  {
+    "id": 171,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Фалькович",
+    "first_name": "Дмитрий",
+    "region": "Минская",
+    "reg_number": "0197"
+  },
+  {
+    "id": 172,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Хацкевич",
+    "first_name": "Милан",
+    "region": "Минская",
+    "reg_number": "0199"
+  },
+  {
+    "id": 173,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мисюченко",
+    "first_name": "Мария",
+    "region": "Минская",
+    "reg_number": "0201"
+  },
+  {
+    "id": 174,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Амбражевич",
+    "first_name": "София",
+    "region": "Минская",
+    "reg_number": "0203"
+  },
+  {
+    "id": 175,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мисюченко",
+    "first_name": "Алексей",
+    "region": "Минская",
+    "reg_number": "0176"
+  },
+  {
+    "id": 176,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Заборонок",
+    "first_name": "Степан",
+    "region": "Минская",
+    "reg_number": "0178"
+  },
+  {
+    "id": 177,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Шаповалов",
+    "first_name": "Илья",
+    "region": "Минская",
+    "reg_number": "0180"
+  },
+  {
+    "id": 178,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мамыко",
+    "first_name": "Вадим",
+    "region": "Минская",
+    "reg_number": "0182"
+  },
+  {
+    "id": 179,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Садовский",
+    "first_name": "Кирилл",
+    "region": "Минская",
+    "reg_number": "0184"
+  },
+  {
+    "id": 180,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Бадытчик",
+    "first_name": "Иван",
+    "region": "Минская",
+    "reg_number": "0186"
+  },
+  {
+    "id": 181,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Масловский",
+    "first_name": "Тимофей",
+    "region": "Минская",
+    "reg_number": "0188"
+  },
+  {
+    "id": 182,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Гужель",
+    "first_name": "Назар",
+    "region": "Минская",
+    "reg_number": "0190"
+  },
+  {
+    "id": 183,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ромыш",
+    "first_name": "Андрей",
+    "region": "Минская",
+    "reg_number": "0192"
+  },
+  {
+    "id": 184,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Бодак",
+    "first_name": "Николай",
+    "region": "Минская",
+    "reg_number": "0194"
+  },
+  {
+    "id": 185,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Дубинин",
+    "first_name": "Даниил",
+    "region": "Минская",
+    "reg_number": "0196"
+  },
+  {
+    "id": 186,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Мурашко",
+    "first_name": "Игорь",
+    "region": "Минская",
+    "reg_number": "0198"
+  },
+  {
+    "id": 187,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Кузнецова",
+    "first_name": "Милена",
+    "region": "Минская",
+    "reg_number": "0200"
+  },
+  {
+    "id": 188,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Дегтярева",
+    "first_name": "Анастасия",
+    "region": "Минская",
+    "reg_number": "0202"
+  },
+  {
+    "id": 189,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Каллаур",
+    "first_name": "Александра",
+    "region": "Минская",
+    "reg_number": "0210"
+  },
+  {
+    "id": 190,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Рогов",
+    "first_name": "Константин",
+    "region": "Могилевская",
+    "reg_number": "0137"
+  },
+  {
+    "id": 191,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Зубок",
+    "first_name": "Александр",
+    "region": "Могилевская",
+    "reg_number": "0139"
+  },
+  {
+    "id": 192,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Капустин",
+    "first_name": "Арсений",
+    "region": "Могилевская",
+    "reg_number": "0141"
+  },
+  {
+    "id": 193,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Котов",
+    "first_name": "Петр",
+    "region": "Могилевская",
+    "reg_number": "0143"
+  },
+  {
+    "id": 194,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Ларионов",
+    "first_name": "Глеб",
+    "region": "Могилевская",
+    "reg_number": "0145"
+  },
+  {
+    "id": 195,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Махлай",
+    "first_name": "Денис",
+    "region": "Могилевская",
+    "reg_number": "0147"
+  },
+  {
+    "id": 196,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Семенцова",
+    "first_name": "Екатерина",
+    "region": "Могилевская",
+    "reg_number": "0149"
+  },
+  {
+    "id": 197,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Барбановская",
+    "first_name": "Ангелина",
+    "region": "Могилевская",
+    "reg_number": "0151"
+  },
+  {
+    "id": 198,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Климова",
+    "first_name": "Ольга",
+    "region": "Могилевская",
+    "reg_number": "0153"
+  },
+  {
+    "id": 199,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Литвинов",
+    "first_name": "Владислав",
+    "region": "Могилевская",
+    "reg_number": "0173"
+  },
+  {
+    "id": 200,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Савельев",
+    "first_name": "Севастьян",
+    "region": "Могилевская",
+    "reg_number": "0209"
+  },
+  {
+    "id": 201,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Осецкий",
+    "first_name": "Виталий",
+    "region": "Могилевская",
+    "reg_number": "0138"
+  },
+  {
+    "id": 202,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Савельев",
+    "first_name": "Станислав",
+    "region": "Могилевская",
+    "reg_number": "0140"
+  },
+  {
+    "id": 203,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Широкий",
+    "first_name": "Владимир",
+    "region": "Могилевская",
+    "reg_number": "0142"
+  },
+  {
+    "id": 204,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Чеботарев",
+    "first_name": "Глеб",
+    "region": "Могилевская",
+    "reg_number": "0144"
+  },
+  {
+    "id": 205,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Иванешко",
+    "first_name": "Даниил",
+    "region": "Могилевская",
+    "reg_number": "0146"
+  },
+  {
+    "id": 206,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Третьяков",
+    "first_name": "Дмитрий",
+    "region": "Могилевская",
+    "reg_number": "0148"
+  },
+  {
+    "id": 207,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Примак",
+    "first_name": "Елизавета",
+    "region": "Могилевская",
+    "reg_number": "0150"
+  },
+  {
+    "id": 208,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Нестеренко",
+    "first_name": "Виктория",
+    "region": "Могилевская",
+    "reg_number": "0152"
+  },
+  {
+    "id": 209,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Андреева",
+    "first_name": "Валерия",
+    "region": "Могилевская",
+    "reg_number": "0154"
+  },
+  {
+    "id": 210,
+    "created_at": "2026-08-11 11:37:26.628242+00",
+    "last_name": "Валько",
+    "first_name": "Тарас",
+    "region": "Могилевская",
+    "reg_number": "0208"
+  }
+];
+        // ===============================================
+
+        // Глобальные переменные
+        let judgeName = '';
+        let currentAthlete = null;
+        let scanner = null;
+        let resultsFilter = 'all';
+        
+        // Очереди синхронизации
+        let pendingResets = JSON.parse(localStorage.getItem('pending_resets') || '[]');
+        let pendingFullReset = JSON.parse(localStorage.getItem('pending_full_reset') || 'false');
+        let pendingDeletes = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
+        let pendingDeleteAll = JSON.parse(localStorage.getItem('pending_delete_all') || 'false');
+        let pendingAdds = JSON.parse(localStorage.getItem('pending_adds') || '[]');
+
+        // Инициализация
+        localStorage.setItem('offline_athletes', JSON.stringify(ATHLETES));
+        updateSyncBadge();
+
+        // ==================== ХРАНИЛИЩЕ ====================
+        function saveAthletes() {
+            localStorage.setItem('offline_athletes', JSON.stringify(ATHLETES));
+        }
+
+        function getWeighIns() {
+            return JSON.parse(localStorage.getItem('offline_weigh_ins') || '[]');
+        }
+
+        function saveWeighIn(record) {
+            const data = getWeighIns();
+            data.push(record);
+            localStorage.setItem('offline_weigh_ins', JSON.stringify(data));
+        }
+
+        function getEvents() {
+            return JSON.parse(localStorage.getItem('offline_events') || '[]');
+        }
+
+        function addEvent(type, name, reg, localOnly) {
+            const events = getEvents();
+            events.unshift({
+                type: type,
+                athlete: name,
+                reg: reg,
+                time: new Date().toISOString(),
+                judge: judgeName || 'Система',
+                synced: localOnly ? true : false
+            });
+            if (events.length > 200) events.pop();
+            localStorage.setItem('offline_events', JSON.stringify(events));
+        }
+
+        // ==================== МАЯЧОК СИНХРОНИЗАЦИИ ====================
+        function updateSyncBadge() {
+            const weighIns = getWeighIns();
+            const unsynced = weighIns.filter(w => !w.synced).length;
+            const events = getEvents();
+            const unsyncedEvents = events.filter(e => !e.synced && e.type !== 'sync').length;
+            
+            const total = unsynced + unsyncedEvents + 
+                          pendingResets.length + pendingDeletes.length +
+                          pendingAdds.length + (pendingFullReset ? 1 : 0) +
+                          (pendingDeleteAll ? 1 : 0);
+            
+            const badge = document.getElementById('syncBadge');
+            
+            if (total === 0) {
+                badge.textContent = '✅ СИНХР.';
+                badge.style.background = '#2ecc71';
+            } else {
+                badge.textContent = '📤 ' + total;
+                badge.style.background = '#e67e22';
+            }
+        }
+
+        // ==================== МЕНЮ ====================
+        function toggleMenu() {
+            document.getElementById('menuOverlay').classList.toggle('open');
+            document.getElementById('menuPanel').classList.toggle('open');
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+            toggleMenu();
+            
+            if (tabName === 'results') {
+                applyResultsFilters();
+            }
+            if (tabName === 'generator') {
+                renderQRList();
+                document.getElementById('qrSearch').value = '';
+            }
+            if (tabName === 'settings') {
+                renderResetList();
+                renderDeleteList();
+                loadEventLog();
+            }
+        }
+
+        // ==================== СКАНЕР ====================
+        function startWork() {
+            const name = document.getElementById('judgeName').value.trim();
+            if (!name) {
+                alert('Введите фамилию судьи!');
+                return;
+            }
+            
+            judgeName = name;
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('manualBox').style.display = 'block';
+            
+            try {
+                scanner = new Html5Qrcode("reader");
+                scanner.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (text) => { findAthlete(text); },
+                    () => {}
+                );
+            } catch(e) {
+                document.getElementById('reader').style.display = 'none';
+            }
+        }
+
+        function lookupById() {
+            const query = document.getElementById('manualId').value.trim();
+            if (!query) {
+                alert('Введите регистрационный номер');
+                return;
+            }
+            findAthlete(query);
+        }
+
+        function findAthlete(query) {
+            const clean = String(query).trim();
+            
+            let athlete = ATHLETES.find(a => a.reg_number === clean);
+            if (!athlete) athlete = ATHLETES.find(a => String(a.id) === clean);
+            
+            if (!athlete) {
+                showMessage('Спортсмен с номером ' + clean + ' не найден', 'err');
+                return;
+            }
+            
+            const weighIns = getWeighIns();
+            const last = weighIns.filter(w => w.athlete_id === athlete.id).pop();
+            
+            currentAthlete = athlete;
+            showCard(athlete, last || null);
+        }
+
+        function showCard(athlete, last) {
+            document.getElementById('athleteCard').style.display = 'block';
+            document.getElementById('athName').textContent = 
+                (athlete.last_name || '') + ' ' + (athlete.first_name || '');
+            document.getElementById('athRegNumber').textContent = 
+                'Рег. номер: ' + (athlete.reg_number || '—');
+            document.getElementById('athClub').textContent = 
+                'Клуб: ' + (athlete.club || '—');
+            document.getElementById('athRegion').textContent = 
+                'Регион: ' + (athlete.region || '—');
+            document.getElementById('athClass').textContent = 
+                'Категория: ' + (athlete.weight_class || '—');
+            
+            const statusDiv = document.getElementById('statusBadge');
+            const buttonsDiv = document.getElementById('actionButtons');
+            
+            if (last) {
+                const s = last.status;
+                statusDiv.innerHTML = '<span class="badge ' + 
+                    (s === 'pass' ? 'badge-pass' : 'badge-fail') + '">' + 
+                    (s === 'pass' ? '✅ ДОПУЩЕН' : '❌ НЕ ДОПУЩЕН') + '</span>';
+                buttonsDiv.innerHTML = '';
+            } else {
+                statusDiv.innerHTML = '<span class="badge badge-none">НЕ ПРОХОДИЛ</span>';
+                buttonsDiv.innerHTML = 
+                    '<button class="btn-pass" onclick="save(\'pass\')">✅ ДОПУЩЕН</button>' +
+                    '<button class="btn-fail" onclick="save(\'fail\')">❌ НЕ ДОПУЩЕН</button>';
+            }
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'msg msg-' + type;
+            setTimeout(() => { msg.className = 'msg'; }, 4000);
+        }
+
+        function save(status) {
+            if (!currentAthlete || !judgeName) return;
+            
+            const txt = status === 'pass' ? 'ДОПУЩЕН' : 'НЕ ДОПУЩЕН';
+            const name = currentAthlete.last_name + ' ' + currentAthlete.first_name;
+            
+            showMessage(name + ' — ' + txt, 'ok');
+            
+            const record = {
+                athlete_id: currentAthlete.id,
+                judge_name: judgeName,
+                status: status,
+                time: new Date().toISOString(),
+                synced: false
+            };
+            
+            saveWeighIn(record);
+            addEvent(status, name, currentAthlete.reg_number);
+            showCard(currentAthlete, record);
+            syncIfOnline();
+        }
+
+        // ==================== ДОБАВЛЕНИЕ СПОРТСМЕНА ====================
+        function addAthlete() {
+            const reg = document.getElementById('addRegNumber').value.trim();
+            const last = document.getElementById('addLastName').value.trim();
+            const first = document.getElementById('addFirstName').value.trim();
+            const region = document.getElementById('addRegion').value.trim();
+            const club = document.getElementById('addClub').value.trim();
+            const cls = document.getElementById('addClass').value.trim();
+            
+            if (!reg || !last || !first) {
+                document.getElementById('addStatus').textContent = '❌ Заполните рег.номер, фамилию и имя';
+                return;
+            }
+            
+            const maxId = ATHLETES.reduce((max, a) => Math.max(max, a.id), 0);
+            const newAthlete = {
+                id: maxId + 1,
+                last_name: last,
+                first_name: first,
+                region: region,
+                club: club,
+                weight_class: cls,
+                reg_number: reg
+            };
+            
+            ATHLETES.push(newAthlete);
+            saveAthletes();
+            
+            pendingAdds.push(newAthlete);
+            localStorage.setItem('pending_adds', JSON.stringify(pendingAdds));
+            
+            addEvent('add', last + ' ' + first, reg);
+            
+            document.getElementById('addStatus').textContent = '✅ Добавлен!';
+            
+            document.getElementById('addRegNumber').value = '';
+            document.getElementById('addLastName').value = '';
+            document.getElementById('addFirstName').value = '';
+            document.getElementById('addRegion').value = '';
+            document.getElementById('addClub').value = '';
+            document.getElementById('addClass').value = '';
+            
+            loadEventLog();
+            syncIfOnline();
+            
+            setTimeout(() => {
+                document.getElementById('addStatus').textContent = '';
+            }, 3000);
+        }
+
+        // ==================== ЗАГРУЗКА CSV ====================
+        function uploadCSV() {
+            const file = document.getElementById('csvFile').files[0];
+            if (!file) {
+                document.getElementById('csvStatus').textContent = '❌ Выберите файл';
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(l => l.trim());
+                
+                if (lines.length < 2) {
+                    document.getElementById('csvStatus').textContent = '❌ Файл пуст';
+                    return;
+                }
+                
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+                
+                const idx = {
+                    reg: headers.findIndex(h => h === 'reg_number'),
+                    last: headers.findIndex(h => h === 'last_name'),
+                    first: headers.findIndex(h => h === 'first_name'),
+                    region: headers.findIndex(h => h === 'region'),
+                    club: headers.findIndex(h => h === 'club'),
+                    cls: headers.findIndex(h => h === 'weight_class')
+                };
+                
+                if (idx.reg === -1 || idx.last === -1 || idx.first === -1) {
+                    document.getElementById('csvStatus').textContent = 
+                        '❌ Нужны колонки: reg_number, last_name, first_name';
+                    return;
+                }
+                
+                const maxId = ATHLETES.reduce((max, a) => Math.max(max, a.id), 0);
+                const newAthletes = [];
+                let skipped = 0;
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const vals = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+                    const reg = vals[idx.reg] || '';
+                    const last = vals[idx.last] || '';
+                    const first = vals[idx.first] || '';
+                    
+                    if (!reg || !last || !first) {
+                        skipped++;
+                        continue;
+                    }
+                    
+                    const athlete = {
+                        id: maxId + i,
+                        last_name: last,
+                        first_name: first,
+                        region: (idx.region !== -1 ? vals[idx.region] : '') || '',
+                        club: (idx.club !== -1 ? vals[idx.club] : '') || '',
+                        weight_class: (idx.cls !== -1 ? vals[idx.cls] : '') || '',
+                        reg_number: reg
+                    };
+                    
+                    newAthletes.push(athlete);
+                    ATHLETES.push(athlete);
+                }
+                
+                if (newAthletes.length === 0) {
+                    document.getElementById('csvStatus').textContent = '❌ Нет данных для загрузки';
+                    return;
+                }
+                
+                saveAthletes();
+                
+                pendingAdds.push(...newAthletes);
+                localStorage.setItem('pending_adds', JSON.stringify(pendingAdds));
+                
+                addEvent('add', 'CSV: ' + newAthletes.length + ' спортсменов', '');
+                
+                let msg = '✅ Загружено ' + newAthletes.length + ' спортсменов!';
+                if (skipped > 0) msg += ' (пропущено: ' + skipped + ')';
+                
+                document.getElementById('csvStatus').textContent = msg;
+                document.getElementById('csvFile').value = '';
+                
+                syncIfOnline();
+                
+                setTimeout(() => {
+                    document.getElementById('csvStatus').textContent = '';
+                }, 4000);
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // ==================== РЕЗУЛЬТАТЫ ====================
+        function setResultsFilter(filter) {
+            resultsFilter = filter;
+            applyResultsFilters();
+        }
+
+        function applyResultsFilters() {
+            const weighIns = getWeighIns();
+            const statusMap = {};
+            weighIns.forEach(w => { statusMap[w.athlete_id] = w; });
+            
+            let filtered = [...ATHLETES];
+            
+            if (resultsFilter === 'pass') {
+                filtered = filtered.filter(a => statusMap[a.id]?.status === 'pass');
+            } else if (resultsFilter === 'fail') {
+                filtered = filtered.filter(a => statusMap[a.id]?.status === 'fail');
+            } else if (resultsFilter === 'none') {
+                filtered = filtered.filter(a => !statusMap[a.id]);
+            }
+            
+            const query = document.getElementById('resultsSearch').value.toLowerCase().trim();
+            if (query) {
+                filtered = filtered.filter(a => {
+                    const full = ((a.last_name || '') + ' ' + (a.first_name || '') + ' ' + (a.reg_number || '')).toLowerCase();
+                    return full.includes(query);
+                });
+            }
+            
+            document.querySelectorAll('#tab-results .filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('res-filter-' + resultsFilter).classList.add('active');
+            
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Нет данных</td></tr>';
+                return;
+            }
+            
+            filtered.forEach(a => {
+                const last = statusMap[a.id];
+                
+                let badge = '<span class="badge-sm badge-sm-none">—</span>';
+                if (last) {
+                    badge = last.status === 'pass'
+                        ? '<span class="badge-sm badge-sm-pass">ДОПУЩЕН</span>'
+                        : '<span class="badge-sm badge-sm-fail">НЕ ДОПУЩЕН</span>';
+                }
+                
+                const timeStr = last
+                    ? new Date(last.time).toLocaleString('ru-RU')
+                    : '—';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${a.reg_number || '—'}</td>
+                        <td>${a.last_name || ''}</td>
+                        <td>${a.first_name || ''}</td>
+                        <td>${a.region || '—'}</td>
+                        <td>${badge}</td>
+                        <td>${last?.judge_name || '—'}</td>
+                        <td>${timeStr}</td>
+                    </tr>`;
+            });
+        }
+
+        function downloadResultsCSV() {
+            const weighIns = getWeighIns();
+            const statusMap = {};
+            weighIns.forEach(w => { statusMap[w.athlete_id] = w; });
+            
+            let filtered = [...ATHLETES];
+            
+            if (resultsFilter === 'pass') {
+                filtered = filtered.filter(a => statusMap[a.id]?.status === 'pass');
+            } else if (resultsFilter === 'fail') {
+                filtered = filtered.filter(a => statusMap[a.id]?.status === 'fail');
+            } else if (resultsFilter === 'none') {
+                filtered = filtered.filter(a => !statusMap[a.id]);
+            }
+            
+            const query = document.getElementById('resultsSearch').value.toLowerCase().trim();
+            if (query) {
+                filtered = filtered.filter(a => {
+                    const full = ((a.last_name || '') + ' ' + (a.first_name || '') + ' ' + (a.reg_number || '')).toLowerCase();
+                    return full.includes(query);
+                });
+            }
+            
+            if (filtered.length === 0) {
+                alert('Нет данных для скачивания');
+                return;
+            }
+            
+            const headers = ['Рег.номер', 'Фамилия', 'Имя', 'Регион', 'Статус', 'Судья', 'Время'];
+            const rows = filtered.map(a => {
+                const last = statusMap[a.id];
+                return [
+                    a.reg_number || '',
+                    a.last_name || '',
+                    a.first_name || '',
+                    a.region || '',
+                    last ? (last.status === 'pass' ? 'ДОПУЩЕН' : 'НЕ ДОПУЩЕН') : '—',
+                    last?.judge_name || '—',
+                    last ? new Date(last.time).toLocaleString('ru-RU') : '—'
+                ];
+            });
+            
+            let csv = '\uFEFF' + headers.join(';') + '\n' + rows.map(r => r.join(';')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'результаты.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== ГЕНЕРАТОР QR ====================
+        function renderQRList(athletes) {
+            const list = athletes || ATHLETES;
+            const container = document.getElementById('qrCheckboxes');
+            container.innerHTML = '';
+            
+            list.forEach(a => {
+                const row = document.createElement('div');
+                row.className = 'athlete-row';
+                row.innerHTML = `
+                    <input type="checkbox" class="qr-checkbox" data-id="${a.id}" onchange="updateQRCount()">
+                    <div class="athlete-info">
+                        <strong>${a.last_name || ''} ${a.first_name || ''}</strong>
+                        <span>Рег.№ ${a.reg_number || '—'} | ${a.region || ''}</span>
+                    </div>`;
+                container.appendChild(row);
+            });
+            
+            updateQRCount();
+            document.getElementById('selectAll').checked = false;
+        }
+
+        function filterQRList() {
+            const query = document.getElementById('qrSearch').value.toLowerCase().trim();
+            
+            if (!query) {
+                renderQRList();
+                return;
+            }
+            
+            const filtered = ATHLETES.filter(a => {
+                const full = ((a.last_name || '') + ' ' + (a.first_name || '') + ' ' + (a.reg_number || '')).toLowerCase();
+                return full.includes(query);
+            });
+            
+            renderQRList(filtered);
+        }
+
+        function toggleSelectAll() {
+            const checked = document.getElementById('selectAll').checked;
+            document.querySelectorAll('#qrCheckboxes .qr-checkbox').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateQRCount();
+        }
+
+        function updateQRCount() {
+            const count = document.querySelectorAll('#qrCheckboxes .qr-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = 'Выбрано: ' + count;
+            document.getElementById('genBtn').disabled = count === 0;
+        }
+
+        async function generateQR() {
+            const checked = document.querySelectorAll('#qrCheckboxes .qr-checkbox:checked');
+            
+            if (checked.length === 0) {
+                alert('Выберите спортсменов');
+                return;
+            }
+            
+            const genBtn = document.getElementById('genBtn');
+            const statusEl = document.getElementById('genStatus');
+            genBtn.disabled = true;
+            statusEl.textContent = 'Генерация...';
+            
+            const selectedIds = Array.from(checked).map(cb => cb.dataset.id);
+            const selected = ATHLETES.filter(a => selectedIds.includes(String(a.id)));
+            
+            const hiddenDiv = document.getElementById('hiddenCanvas');
+            hiddenDiv.innerHTML = '';
+            const zip = new JSZip();
+            
+            for (const athlete of selected) {
+                const qrDiv = document.createElement('div');
+                hiddenDiv.appendChild(qrDiv);
+                
+                await new Promise(resolve => {
+                    new QRCode(qrDiv, {
+                        text: String(athlete.reg_number),
+                        width: 400,
+                        height: 400,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    setTimeout(resolve, 300);
+                });
+                
+                const canvas = qrDiv.querySelector('canvas');
+                if (canvas) {
+                    const pngData = canvas.toDataURL('image/png').split(',')[1];
+                    const fileName = ((athlete.last_name || '') + '_' + (athlete.first_name || ''))
+                        .replace(/[^a-zA-Zа-яА-Я0-9_]/g, '_') + '.png';
+                    zip.file(fileName, pngData, { base64: true });
+                }
+                
+                qrDiv.remove();
+            }
+            
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'QR_codes.zip';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            statusEl.textContent = '✅ Скачано ' + selected.length + ' QR-кодов';
+            genBtn.disabled = false;
+        }
+
+        // ==================== ВЫБОРОЧНЫЙ СБРОС ====================
+        function renderResetList(athletes) {
+            const list = athletes || ATHLETES;
+            const container = document.getElementById('resetCheckboxes');
+            container.innerHTML = '';
+            
+            list.forEach(a => {
+                const row = document.createElement('div');
+                row.className = 'athlete-row';
+                row.innerHTML = `
+                    <input type="checkbox" class="reset-checkbox" data-id="${a.id}" onchange="updateResetCount()">
+                    <div class="athlete-info">
+                        <strong>${a.last_name || ''} ${a.first_name || ''}</strong>
+                        <span>Рег.№ ${a.reg_number || '—'} | ${a.region || ''}</span>
+                    </div>`;
+                container.appendChild(row);
+            });
+            
+            updateResetCount();
+            document.getElementById('selectAllReset').checked = false;
+        }
+
+        function filterResetList() {
+            const query = document.getElementById('resetSearch').value.toLowerCase().trim();
+            
+            if (!query) {
+                renderResetList();
+                return;
+            }
+            
+            const filtered = ATHLETES.filter(a => {
+                const full = ((a.last_name || '') + ' ' + (a.first_name || '') + ' ' + (a.reg_number || '')).toLowerCase();
+                return full.includes(query);
+            });
+            
+            renderResetList(filtered);
+        }
+
+        function toggleSelectAllReset() {
+            const checked = document.getElementById('selectAllReset').checked;
+            document.querySelectorAll('#resetCheckboxes .reset-checkbox').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateResetCount();
+        }
+
+        function updateResetCount() {
+            const count = document.querySelectorAll('#resetCheckboxes .reset-checkbox:checked').length;
+            document.getElementById('resetCount').textContent = 'Выбрано: ' + count;
+            document.getElementById('resetBtn').disabled = count === 0;
+        }
+
+        function resetSelected() {
+            const checked = document.querySelectorAll('#resetCheckboxes .reset-checkbox:checked');
+            
+            if (checked.length === 0) {
+                alert('Выберите спортсменов');
+                return;
+            }
+            
+            if (!confirm('Сбросить статус у выбранных спортсменов?')) return;
+            
+            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id));
+            
+            let weighIns = getWeighIns();
+            weighIns = weighIns.filter(w => !ids.includes(w.athlete_id));
+            localStorage.setItem('offline_weigh_ins', JSON.stringify(weighIns));
+            
+            pendingResets = [...new Set([...pendingResets, ...ids])];
+            localStorage.setItem('pending_resets', JSON.stringify(pendingResets));
+            
+            addEvent('reset', 'Сброс: ' + ids.length + ' чел.', '');
+            
+            document.getElementById('resetSelectedStatus').textContent = '✅ Сброшено у ' + ids.length + ' спортсменов';
+            document.getElementById('athleteCard').style.display = 'none';
+            currentAthlete = null;
+            
+            syncIfOnline();
+            
+            setTimeout(() => {
+                document.getElementById('resetSelectedStatus').textContent = '';
+                renderResetList();
+            }, 2000);
+        }
+
+        // ==================== ПОЛНЫЙ СБРОС ====================
+        function resetWeighIns() {
+            if (!confirm('Сбросить все отметки?')) return;
+            
+            localStorage.setItem('offline_weigh_ins', '[]');
+            pendingFullReset = true;
+            localStorage.setItem('pending_full_reset', 'true');
+            
+            addEvent('reset', 'Все отметки сброшены', '');
+            
+            document.getElementById('resetStatus').textContent = '✅ Сброшено!';
+            document.getElementById('athleteCard').style.display = 'none';
+            currentAthlete = null;
+            
+            syncIfOnline();
+            
+            setTimeout(() => {
+                document.getElementById('resetStatus').textContent = '';
+            }, 3000);
+        }
+
+        // ==================== УДАЛЕНИЕ СПОРТСМЕНОВ ====================
+        function renderDeleteList(athletes) {
+            const list = athletes || ATHLETES;
+            const container = document.getElementById('deleteCheckboxes');
+            container.innerHTML = '';
+            
+            list.forEach(a => {
+                const row = document.createElement('div');
+                row.className = 'athlete-row';
+                row.innerHTML = `
+                    <input type="checkbox" class="delete-checkbox" data-id="${a.id}" onchange="updateDeleteCount()">
+                    <div class="athlete-info">
+                        <strong>${a.last_name || ''} ${a.first_name || ''}</strong>
+                        <span>Рег.№ ${a.reg_number || '—'} | ${a.region || ''}</span>
+                    </div>`;
+                container.appendChild(row);
+            });
+            
+            updateDeleteCount();
+            document.getElementById('selectAllDelete').checked = false;
+        }
+
+        function filterDeleteList() {
+            const query = document.getElementById('deleteSearch').value.toLowerCase().trim();
+            
+            if (!query) {
+                renderDeleteList();
+                return;
+            }
+            
+            const filtered = ATHLETES.filter(a => {
+                const full = ((a.last_name || '') + ' ' + (a.first_name || '') + ' ' + (a.reg_number || '')).toLowerCase();
+                return full.includes(query);
+            });
+            
+            renderDeleteList(filtered);
+        }
+
+        function toggleSelectAllDelete() {
+            const checked = document.getElementById('selectAllDelete').checked;
+            document.querySelectorAll('#deleteCheckboxes .delete-checkbox').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateDeleteCount();
+        }
+
+        function updateDeleteCount() {
+            const count = document.querySelectorAll('#deleteCheckboxes .delete-checkbox:checked').length;
+            document.getElementById('deleteCount').textContent = 'Выбрано: ' + count;
+            document.getElementById('deleteBtn').disabled = count === 0;
+        }
+
+        function deleteSelected() {
+            const checked = document.querySelectorAll('#deleteCheckboxes .delete-checkbox:checked');
+            
+            if (checked.length === 0) {
+                alert('Выберите спортсменов');
+                return;
+            }
+            
+            if (!confirm('Удалить выбранных спортсменов? Необратимо!')) return;
+            
+            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id));
+            
+            ATHLETES = ATHLETES.filter(a => !ids.includes(a.id));
+            saveAthletes();
+            
+            let weighIns = getWeighIns();
+            weighIns = weighIns.filter(w => !ids.includes(w.athlete_id));
+            localStorage.setItem('offline_weigh_ins', JSON.stringify(weighIns));
+            
+            pendingDeletes = [...new Set([...pendingDeletes, ...ids])];
+            localStorage.setItem('pending_deletes', JSON.stringify(pendingDeletes));
+            
+            addEvent('delete', 'Удалены: ' + ids.length + ' чел.', '');
+            
+            document.getElementById('deleteStatus').textContent = '✅ Удалено ' + ids.length + ' спортсменов';
+            
+            syncIfOnline();
+            
+            setTimeout(() => {
+                document.getElementById('deleteStatus').textContent = '';
+                renderDeleteList();
+                renderResetList();
+                renderQRList();
+            }, 2000);
+        }
+
+        // ==================== ПОЛНОЕ УДАЛЕНИЕ ====================
+        function deleteAllAthletes() {
+            if (!confirm('Удалить ВСЕХ спортсменов и ВСЕ результаты? Необратимо!')) return;
+            if (!confirm('Точно? Данные нельзя будет восстановить.')) return;
+            
+            ATHLETES = [];
+            saveAthletes();
+            localStorage.setItem('offline_weigh_ins', '[]');
+            
+            pendingDeletes = [];
+            pendingDeleteAll = true;
+            localStorage.setItem('pending_delete_all', 'true');
+            localStorage.setItem('pending_deletes', '[]');
+            
+            addEvent('delete', 'Все спортсмены удалены', '');
+            
+            document.getElementById('deleteAllStatus').textContent = '💀 Все спортсмены удалены';
+            
+            syncIfOnline();
+            
+            setTimeout(() => {
+                document.getElementById('deleteAllStatus').textContent = '';
+            }, 3000);
+        }
+
+        // ==================== ИСТОРИЯ ====================
+        function loadEventLog() {
+            const log = document.getElementById('eventLog');
+            const events = getEvents();
+            
+            if (events.length === 0) {
+                log.innerHTML = '<p style="text-align:center; color:#888;">Событий пока нет</p>';
+                return;
+            }
+            
+            log.innerHTML = events.slice(0, 50).map(e => {
+                const time = new Date(e.time).toLocaleString('ru-RU');
+                let cls = '';
+                let icon = '';
+                
+                if (e.type === 'pass') {
+                    cls = 'event-pass';
+                    icon = '✅';
+                } else if (e.type === 'fail') {
+                    cls = 'event-fail';
+                    icon = '❌';
+                } else if (e.type === 'reset') {
+                    cls = 'event-reset';
+                    icon = '🔄';
+                } else if (e.type === 'delete') {
+                    cls = 'event-delete';
+                    icon = '🗑';
+                } else if (e.type === 'add') {
+                    cls = 'event-add';
+                    icon = '➕';
+                } else if (e.type === 'sync') {
+                    cls = 'event-sync';
+                    icon = '📡';
+                }
+                
+                return `
+                    <div class="event-item ${cls}">
+                        ${icon} <strong>${e.athlete}</strong>
+                        ${e.reg ? '(рег.№ ' + e.reg + ')' : ''}
+                        <br><span class="event-time">${time} | ${e.judge}</span>
+                    </div>`;
+            }).join('');
+        }
+
+        // ==================== МГНОВЕННАЯ СИНХРОНИЗАЦИЯ ====================
+        async function syncIfOnline() {
+            if (!navigator.onLine) {
+                updateSyncBadge();
+                return;
+            }
+            
+            try {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+                document.head.appendChild(script);
+                await new Promise(resolve => { script.onload = resolve; });
+                
+                const SUPABASE_URL = 'ВСТАВЬ_СВОЙ_URL';
+                const SUPABASE_KEY = 'ВСТАВЬ_СВОЙ_КЛЮЧ';
+                const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                
+                const weighIns = getWeighIns();
+                const unsynced = weighIns.filter(w => !w.synced);
+                const events = getEvents();
+                const unsyncedEvents = events.filter(e => !e.synced && e.type !== 'sync');
+                
+                // Отправка локальных данных
+                if (pendingDeleteAll) {
+                    await db.from('weigh_ins').delete().neq('id', 0);
+                    await db.from('event_log').delete().neq('id', 0);
+                    await db.from('athletes').delete().neq('id', 0);
+                    pendingDeleteAll = false;
+                    localStorage.setItem('pending_delete_all', 'false');
+                }
+                
+                if (pendingFullReset) {
+                    await db.from('weigh_ins').delete().neq('id', 0);
+                    pendingFullReset = false;
+                    localStorage.setItem('pending_full_reset', 'false');
+                }
+                
+                if (pendingResets.length) {
+                    await db.from('weigh_ins').delete().in('athlete_id', pendingResets);
+                    pendingResets = [];
+                    localStorage.setItem('pending_resets', '[]');
+                }
+                
+                if (pendingDeletes.length) {
+                    await db.from('weigh_ins').delete().in('athlete_id', pendingDeletes);
+                    await db.from('athletes').delete().in('id', pendingDeletes);
+                    pendingDeletes = [];
+                    localStorage.setItem('pending_deletes', '[]');
+                }
+                
+                if (pendingAdds.length) {
+                    for (const a of pendingAdds) {
+                        await db.from('athletes').insert({
+                            reg_number: a.reg_number,
+                            last_name: a.last_name,
+                            first_name: a.first_name,
+                            region: a.region,
+                            club: a.club || null,
+                            weight_class: a.weight_class || null
+                        });
+                    }
+                    pendingAdds = [];
+                    localStorage.setItem('pending_adds', '[]');
+                }
+                
+                for (const w of unsynced) {
+                    const { error } = await db.from('weigh_ins').insert({
+                        athlete_id: w.athlete_id,
+                        judge_name: w.judge_name,
+                        status: w.status
+                    });
+                    if (!error) w.synced = true;
+                }
+                localStorage.setItem('offline_weigh_ins', JSON.stringify(weighIns));
+                
+                for (const e of unsyncedEvents) {
+                    const { error } = await db.from('event_log').insert({
+                        event_type: e.type,
+                        athlete_name: e.athlete,
+                        reg_number: e.reg || '',
+                        judge_name: e.judge
+                    });
+                    if (!error) e.synced = true;
+                }
+                localStorage.setItem('offline_events', JSON.stringify(events));
+                
+                // Загрузка данных из облака
+                const { data: cloudAthletes } = await db
+                    .from('athletes')
+                    .select('*')
+                    .order('reg_number', { ascending: true });
+                
+                if (cloudAthletes && cloudAthletes.length > 0) {
+                    ATHLETES = cloudAthletes.map(a => ({
+                        id: a.id,
+                        last_name: a.last_name,
+                        first_name: a.first_name,
+                        region: a.region || '',
+                        club: a.club || '',
+                        weight_class: a.weight_class || '',
+                        reg_number: a.reg_number
+                    }));
+                    saveAthletes();
+                }
+                
+                const { data: cloudWeighIns } = await db.from('weigh_ins').select('*');
+                
+                if (cloudWeighIns) {
+                    const local = getWeighIns();
+                    const merged = [...local.filter(w => w.synced === false)];
+                    
+                    for (const cw of cloudWeighIns) {
+                        if (!merged.find(w => w.athlete_id === cw.athlete_id && w.time === cw.created_at)) {
+                            merged.push({
+                                athlete_id: cw.athlete_id,
+                                judge_name: cw.judge_name,
+                                status: cw.status,
+                                time: cw.created_at,
+                                synced: true
+                            });
+                        }
+                    }
+                    
+                    localStorage.setItem('offline_weigh_ins', JSON.stringify(merged));
+                }
+                
+            } catch(err) {
+                // Безшумная ошибка
+            }
+            
+            updateSyncBadge();
+        }
+
+        // ==================== РУЧНАЯ СИНХРОНИЗАЦИЯ ====================
+        async function syncAll() {
+            if (!navigator.onLine) {
+                alert('❌ Нет подключения к сети');
+                return;
+            }
+            
+            const weighIns = getWeighIns();
+            const unsynced = weighIns.filter(w => !w.synced);
+            const events = getEvents();
+            const unsyncedEvents = events.filter(e => !e.synced && e.type !== 'sync');
+            
+            const total = unsynced.length + unsyncedEvents.length +
+                          pendingResets.length + pendingDeletes.length +
+                          pendingAdds.length + (pendingFullReset ? 1 : 0) +
+                          (pendingDeleteAll ? 1 : 0);
+            
+            try {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+                document.head.appendChild(script);
+                await new Promise(resolve => { script.onload = resolve; });
+                
+                const SUPABASE_URL = 'ВСТАВЬ_СВОЙ_URL';
+                const SUPABASE_KEY = 'ВСТАВЬ_СВОЙ_КЛЮЧ';
+                const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                
+                // Отправка
+                if (pendingDeleteAll) {
+                    await db.from('weigh_ins').delete().neq('id', 0);
+                    await db.from('event_log').delete().neq('id', 0);
+                    await db.from('athletes').delete().neq('id', 0);
+                    pendingDeleteAll = false;
+                    localStorage.setItem('pending_delete_all', 'false');
+                }
+                
+                if (pendingFullReset) {
+                    await db.from('weigh_ins').delete().neq('id', 0);
+                    pendingFullReset = false;
+                    localStorage.setItem('pending_full_reset', 'false');
+                }
+                
+                if (pendingResets.length) {
+                    await db.from('weigh_ins').delete().in('athlete_id', pendingResets);
+                    pendingResets = [];
+                    localStorage.setItem('pending_resets', '[]');
+                }
+                
+                if (pendingDeletes.length) {
+                    await db.from('weigh_ins').delete().in('athlete_id', pendingDeletes);
+                    await db.from('athletes').delete().in('id', pendingDeletes);
+                    pendingDeletes = [];
+                    localStorage.setItem('pending_deletes', '[]');
+                }
+                
+                if (pendingAdds.length) {
+                    for (const a of pendingAdds) {
+                        await db.from('athletes').insert({
+                            reg_number: a.reg_number,
+                            last_name: a.last_name,
+                            first_name: a.first_name,
+                            region: a.region,
+                            club: a.club || null,
+                            weight_class: a.weight_class || null
+                        });
+                    }
+                    pendingAdds = [];
+                    localStorage.setItem('pending_adds', '[]');
+                }
+                
+                for (const w of unsynced) {
+                    const { error } = await db.from('weigh_ins').insert({
+                        athlete_id: w.athlete_id,
+                        judge_name: w.judge_name,
+                        status: w.status
+                    });
+                    if (!error) w.synced = true;
+                }
+                localStorage.setItem('offline_weigh_ins', JSON.stringify(weighIns));
+                
+                for (const e of unsyncedEvents) {
+                    const { error } = await db.from('event_log').insert({
+                        event_type: e.type,
+                        athlete_name: e.athlete,
+                        reg_number: e.reg || '',
+                        judge_name: e.judge
+                    });
+                    if (!error) e.synced = true;
+                }
+                localStorage.setItem('offline_events', JSON.stringify(events));
+                
+                // Загрузка из облака
+                const { data: cloudAthletes } = await db
+                    .from('athletes')
+                    .select('*')
+                    .order('reg_number', { ascending: true });
+                
+                if (cloudAthletes && cloudAthletes.length > 0) {
+                    ATHLETES = cloudAthletes.map(a => ({
+                        id: a.id,
+                        last_name: a.last_name,
+                        first_name: a.first_name,
+                        region: a.region || '',
+                        club: a.club || '',
+                        weight_class: a.weight_class || '',
+                        reg_number: a.reg_number
+                    }));
+                    saveAthletes();
+                }
+                
+                const { data: cloudWeighIns } = await db.from('weigh_ins').select('*');
+                
+                if (cloudWeighIns) {
+                    const local = getWeighIns();
+                    const merged = [...local.filter(w => w.synced === false)];
+                    
+                    for (const cw of cloudWeighIns) {
+                        if (!merged.find(w => w.athlete_id === cw.athlete_id && w.time === cw.created_at)) {
+                            merged.push({
+                                athlete_id: cw.athlete_id,
+                                judge_name: cw.judge_name,
+                                status: cw.status,
+                                time: cw.created_at,
+                                synced: true
+                            });
+                        }
+                    }
+                    
+                    localStorage.setItem('offline_weigh_ins', JSON.stringify(merged));
+                }
+                
+                addEvent('sync', 'Синхронизация с облаком выполнена', '', true);
+                
+                alert('✅ Синхронизация завершена!');
+                loadEventLog();
+                updateSyncBadge();
+                
+                if (document.getElementById('tab-results').classList.contains('active')) {
+                    applyResultsFilters();
+                }
+                
+            } catch(err) {
+                alert('❌ Ошибка синхронизации. Проверьте подключение.');
+            }
+        }
+
+        // ==================== АВТОСИНХРОНИЗАЦИЯ ====================
+        let wasOffline = !navigator.onLine;
+        
+        window.addEventListener('online', () => {
+            if (wasOffline) {
+                syncAll();
+            }
+            wasOffline = false;
+        });
+        
+        window.addEventListener('offline', () => {
+            wasOffline = true;
+        });
+
+        // ==================== PWA ====================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
