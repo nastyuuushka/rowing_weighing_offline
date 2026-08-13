@@ -3005,11 +3005,11 @@
                 await new Promise(resolve => {
                     new QRCode(qrDiv, {
                         text: String(athlete.reg_number),
-                        width: 400,
-                        height: 400,
+                        width: 240,
+                        height: 240,
                         colorDark: "#000000",
                         colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
+                        correctLevel: QRCode.CorrectLevel.M
                     });
                     setTimeout(resolve, 300);
                 });
